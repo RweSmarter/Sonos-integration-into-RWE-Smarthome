@@ -2,22 +2,22 @@
 /*
  * RWE Smarthome state variable triggers actions on wireles speakers systems
  * @author     Smarter user from  link: http://www.rwe-smarthome-forum.de
- * @date 15/March/2014
- * version 3
+ * @date 21/March/2014
+ * version 4
  * PhpSonos.Inc.php  class        link: http://homematic-forum.de/forum/download/file.php?id=8877
  * RWE SmartHome.php class        link: https://raw.github.com/Bubelbub/RWE-SmartHome-PHP-master/SmartHome.class.php
  * SmartHome michaelano Utilities link: http://www.rwe-smarthome-forum.de/attachment.php?aid=925
  * ----Instructions---------------------------------------------------------------------------------------------
  * Enter RWE Smarthome constants (username, passwd, RWE Smarthome IP addesse)and Sonos constants in config.ini
  * Create and configure state variables (Zustandsvariable=ZV) in RWE Smarthome. Determine delimiter for ZV names in config.ini file 
- * You can use two options in ZV names:
- * Option1: play messages as mp3 file                   Option2: execute your php script
- * 12345678901234567890123456789012345                  12345678901234567890123456789012345
- * Son_mp3Name_ZoneName_NN                             Sonos_phpFunction
- *  |       |      |      |                             |       |                                                     
- *  |       |      |       Volume 0 -100%               |       |      
- *  |       |    determin ipAddresses in config.ini     |       customer defined function mySonosScript.php
- *  |       |                                           determin variable preFix2 in config.ini
+ * You can use the following options in ZV names:
+ * Option1: play messages as mp3 file                  Option2: execute your php script                    
+ * 12345678901234567890123456789012345                 12345678901234567890123456789012345                 
+ * Son_mp3Name_ZoneName_NN                             Sonos_phpFunction_argument                                   
+ *  |       |      |     |                              |       |          |                                          
+ *  |       |      |     Volume 0 -100%                 |       |           parameter for sub-routine                                                 
+ *  |       |    determin zone in config.ini            |     customer defined function mySonosScript.php   
+ *  |       |                                           determin variable preFix2 in config.ini                           
  *  |       e.g. AlarmOn without extention and storage location is defined in config.ini e.g. AlarmOn
  *  determin variable preFix1 in config.ini
  */
@@ -25,6 +25,8 @@
 global $mydebug;  # true or false is definded in config.ini
 global $newLine;  # used for debugging
 global $configIni;# content of config.ini file
+global $LDSARR;
+global $LDS;
 $newLine          = php_sapi_name() == 'cli' ? "\n" : '<br />';
 $configcachefile  = 'Configuration.cache';               # file name for RWE caching to accelarate reading configuration
 $configIniFile    = __DIR__ . '/config.ini';             # customize config.ini  and enter username, passwd .....
@@ -60,7 +62,6 @@ if ( (file_exists($configIniFile)) && (is_readable($configIniFile)) )
 $sh = michaelano\SmartHomePHP\SmartHomeLogin($configIniFile,$configIni['RWE_SmartHome']['Host'],$configIni['RWE_SmartHome']['Username'],$configIni['RWE_SmartHome']['Password']); #login into SH
 $CONFIGR = michaelano\SmartHomePHP\GetConfigR($sh,$configcachefile, $mydebug ); # read whole configuration from SH
 $ROOMS   = $CONFIGR['Rooms'];                   
-$BDS     = $CONFIGR['BDs']  ;               
 $LDS     = $CONFIGR['LDs']  ;                 
 $devstates = $sh->getAllLogicalDeviceStates();          if ($mydebug )  {  echo '<pre>' , print_r($devstates), '</pre>';}
 $LDSARR = $devstates->States->LogicalDeviceState;
@@ -83,17 +84,16 @@ foreach ($LDSARR as $LD) {
 	    }
     }   
     //--------------Option2: 1 delimiters = 2 variables------------------------------------------------------------------------
-    $Test=count(explode($configIni['Sonos']['delimiter'] , $LDNAME));
-    if ($Test==2) {
-    list ($leftLDName2, $action) = array_pad(explode($configIni['Sonos']['delimiter'], $LDNAME,2),2,0); # option 2:  splitt variable names
-	    if ($leftLDName2 == $configIni['Sonos']['triggerNameSonosPrefix2']) {   # ----------- option 2
-	    	$VALUE = isset ($LD->Ppts->Ppt["Value"]) ? $LD->Ppts->Ppt["Value"]->__toString() : null;     
-	    	if($VALUE== "True" ) {
-	    	call_user_func ($action);    	    	
-	    	echo "Option2: ZV= '".$LDNAME. "' => mySonosScripts.php  => function ". $action . " ()" . $newLine;
-	    	}
-	   	}
-	}
+    if (count(explode($configIni['Sonos']['delimiter'] , $LDNAME))==2 or count(explode($configIni['Sonos']['delimiter'] , $LDNAME))==3) {
+    list ($leftLDName2, $action, $arg1) = array_pad(explode($configIni['Sonos']['delimiter'], $LDNAME,3),3,0); # option 2:  splitt variable names
+		    if ($leftLDName2 == $configIni['Sonos']['triggerNameSonosPrefix2']) {   # ----------- option 2
+		    	$VALUE = isset ($LD->Ppts->Ppt["Value"]) ? $LD->Ppts->Ppt["Value"]->__toString() : null;     
+		    	if($VALUE== "True" ) {
+		    	call_user_func ($action, $arg1);    	    	
+		    	echo "Option2: ZV= '".$LDNAME. "' => mySonosScripts.php  => function ". $action . " ()" . $newLine;
+		   	}
+		 }
+	}	
  } # end foereach logical device
   
 // Play MP3 on Sonos speaker
